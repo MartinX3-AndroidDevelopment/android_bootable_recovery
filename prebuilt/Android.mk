@@ -259,11 +259,10 @@ ifeq ($(TW_INCLUDE_CRYPTO), true)
             RELINK_SOURCE_FILES += $(TARGET_OUT_SHARED_LIBRARIES)/libservices.so
             RELINK_SOURCE_FILES += $(TARGET_OUT_SHARED_LIBRARIES)/libkeymaster_portable.so
          endif
-         # lshal can be useful for seeing if you have things like the keymaster working properly, but it isn't needed for TWRP to work
-         #RELINK_SOURCE_FILES += $(TARGET_OUT_EXECUTABLES)/lshal
-         #RELINK_SOURCE_FILES += $(TARGET_OUT_SHARED_LIBRARIES)/liblshal.so
-         #RELINK_SOURCE_FILES += $(TARGET_OUT_SHARED_LIBRARIES)/libssl.so
-         #RELINK_SOURCE_FILES += $(TARGET_OUT_SHARED_LIBRARIES)/libhidl-gen-hash.so
+         RELINK_SOURCE_FILES += $(TARGET_OUT_EXECUTABLES)/lshal
+         RELINK_SOURCE_FILES += $(TARGET_OUT_SHARED_LIBRARIES)/liblshal.so
+         RELINK_SOURCE_FILES += $(TARGET_OUT_SHARED_LIBRARIES)/libssl.so
+         RELINK_SOURCE_FILES += $(TARGET_OUT_SHARED_LIBRARIES)/libhidl-gen-hash.so
     endif
 endif
 ifeq ($(AB_OTA_UPDATER), true)
