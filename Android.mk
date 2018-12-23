@@ -567,8 +567,11 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26; echo $$?),0)
             $(TARGET_OUT_ETC)/ld.config*.txt > $(TARGET_RECOVERY_ROOT_OUT)/sbin/ld.config.txt;
 endif
 
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 25; echo $$?),0)
-    TWRP_REQUIRED_MODULES += file_contexts_text
+# Only add file_contexts for Android versions N and O
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -le 27; echo $$?),0)
+	ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 25; echo $$?),0)
+	    TWRP_REQUIRED_MODULES += file_contexts_text
+	endif
 endif
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 24; echo $$?),0)
