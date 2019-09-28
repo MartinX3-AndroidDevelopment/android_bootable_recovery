@@ -1,0 +1,38 @@
+name: repo-sync
+on:
+  schedule:
+  - cron:  "*/15 * * * *"
+jobs:
+  repo-sync:
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Define variables
+      run: |
+        echo "upstream=TeamWin/android_bootable_recovery" >> $GITHUB_ENV
+        echo "rebase_base=android-9.0" >> $GITHUB_ENV
+        echo "rebase_head=MartinX3/omnirom/android-9.0" >> $GITHUB_ENV
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        ref: ${{ env.rebase_head }}
+    - name: Define git author for rebase
+      run: |
+        git config user.email "nc-duenkekl3@netcologne.de"
+        git config user.name "Martin Dünkelmann"
+    - uses: repo-sync/github-sync@v2
+      with:
+        source_repo: ${{ env.upstream }}
+        source_branch: "*"
+        destination_branch: "*"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: omnirom-9.0-sync Some commits I did cherry-pick
+      uses: repo-sync/github-sync@v2
+      with:
+        source_repo: "oshmoun/android_bootable_recovery"
+        source_branch: "android-9.0"
+        destination_branch: "omnirom/android-9.0"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Fix permissions broken by the previous step
+      run: sudo chmod -R ugo+rwX .
+    - run: git rebase origin/${{ env.rebase_base }} ${{ env.rebase_head }}
+    - run: git push --force-with-lease
