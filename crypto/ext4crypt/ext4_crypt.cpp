@@ -34,9 +34,10 @@
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <iostream>
 
 #include <android-base/file.h>
-#include <android-base/logging.h>
+// #include <android-base/logging.h>
 #include <cutils/properties.h>
 
 #define XATTR_NAME_ENCRYPTION_POLICY "encryption.policy"
@@ -46,6 +47,8 @@
 #define EXT4_ENCRYPTION_MODE_AES_256_CTS    4
 #define EXT4_ENCRYPTION_MODE_AES_256_HEH    126
 #define EXT4_ENCRYPTION_MODE_PRIVATE        127
+#define LOG(x) std::cout
+#define PLOG(x) std::cout
 
 static int encryption_mode = EXT4_ENCRYPTION_MODE_PRIVATE;
 

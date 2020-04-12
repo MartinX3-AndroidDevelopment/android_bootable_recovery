@@ -44,8 +44,8 @@
 //#include "VoldUtil.h"
 
 #include <iostream>
-#define LOG(x) std::cout
-#define PLOG(x) std::cout
+// #define LOG(x) std::cout
+// #define PLOG(x) std::cout
 #include <linux/fs.h>
 
 #define DM_CRYPT_BUF_SIZE 4096

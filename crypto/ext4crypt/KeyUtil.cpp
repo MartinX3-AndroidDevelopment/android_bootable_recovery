@@ -31,8 +31,8 @@
 #include "Utils.h"
 
 #include <iostream>
-#define LOG(x) std::cout
-#define PLOG(x) std::cout
+// #define LOG(x) std::cout
+// #define PLOG(x) std::cout
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -134,14 +134,14 @@ bool installKey(const KeyBuffer& key, std::string* raw_ref) {
     ext4_encryption_key &ext4_key = *reinterpret_cast<ext4_encryption_key*>(ext4KeyBuffer.data());
 
     if (!fillKey(key, &ext4_key)) return false;
-    if (is_wrapped_key_supported()) {
+    // if (is_wrapped_key_supported()) {
         /* When wrapped key is supported, only the first 32 bytes are
            the same per boot. The second 32 bytes can change as the ephemeral
            key is different. */
-        *raw_ref = generateKeyRef(ext4_key.raw, (ext4_key.size)/2);
-    } else {
+        // *raw_ref = generateKeyRef(ext4_key.raw, (ext4_key.size)/2);
+    // } else {
         *raw_ref = generateKeyRef(ext4_key.raw, ext4_key.size);
-    }
+    // }
     key_serial_t device_keyring;
     if (!e4cryptKeyring(&device_keyring)) return false;
     for (char const* const* name_prefix = NAME_PREFIXES; *name_prefix != nullptr; name_prefix++) {
@@ -182,6 +182,31 @@ bool evictKey(const std::string& raw_ref) {
     return success;
 }
 
+#ifdef USE_FSCRYPT
+bool retrieveAndInstallKey(bool create_if_absent, const KeyAuthentication& key_authentication, 
+                           const std::string& key_path, const std::string& tmp_path,           
+                           std::string* key_ref) {                                             
+    KeyBuffer key;                                                                             
+    if (pathExists(key_path)) {                                                                
+        LOG(DEBUG) << "Key exists, using: " << key_path;                                       
+        if (!retrieveKey(key_path, key_authentication, &key)) return false;                    
+    } else {                                                                                   
+        if (!create_if_absent) {                                                               
+            LOG(ERROR) << "No key found in " << key_path;                                      
+            return false;                                                                      
+        }                                                                                      
+        LOG(INFO) << "Creating new key in " << key_path;                                       
+        if (!randomKey(&key)) return false;                                                    
+        if (!storeKeyAtomically(key_path, tmp_path, key_authentication, key)) return false;    
+    }                                                                                          
+                                                                                               
+    if (!installKey(key, key_ref)) {                                                           
+        LOG(ERROR) << "Failed to install key in " << key_path;                                 
+        return false;                                                                          
+    }                                                                                          
+    return true;                                                                               
+}                                                                                              
+#else
 bool retrieveAndInstallKey(bool create_if_absent, const KeyAuthentication& key_authentication,
                            const std::string& key_path, const std::string& tmp_path,
                            std::string* key_ref, bool wrapped_key_supported) {
@@ -202,15 +227,14 @@ bool retrieveAndInstallKey(bool create_if_absent, const KeyAuthentication& key_a
         }
         if (!storeKeyAtomically(key_path, tmp_path, key_authentication, key)) return false;
     }
-
-    if (wrapped_key_supported) {
-        KeyBuffer ephemeral_wrapped_key;
-        if (!getEphemeralWrappedKey(KeyFormat::RAW, key, &ephemeral_wrapped_key)) {
-            LOG(ERROR) << "Failed to export key in retrieveAndInstallKey";
-            return false;
-        }
-        key = std::move(ephemeral_wrapped_key);
-    }
+    // if (wrapped_key_supported) {
+    //     KeyBuffer ephemeral_wrapped_key;
+    //     if (!getEphemeralWrappedKey(KeyFormat::RAW, key, &ephemeral_wrapped_key)) {
+    //         LOG(ERROR) << "Failed to export key in retrieveAndInstallKey";
+    //         return false;
+    //     }
+    //     key = std::move(ephemeral_wrapped_key);
+    // }
 
     if (!installKey(key, key_ref)) {
         LOG(ERROR) << "Failed to install key in " << key_path << std::endl;
@@ -218,6 +242,7 @@ bool retrieveAndInstallKey(bool create_if_absent, const KeyAuthentication& key_a
     }
     return true;
 }
+#endif
 
 bool retrieveKey(bool create_if_absent, const std::string& key_path,
                  const std::string& tmp_path, KeyBuffer* key) {

@@ -34,7 +34,7 @@
 #include <openssl/sha.h>
 
 #include <android-base/file.h>
-//#include <android-base/logging.h>
+// #include <android-base/logging.h>
 #include <android-base/unique_fd.h>
 
 #include <cutils/properties.h>
@@ -44,9 +44,9 @@
 #include <keymasterV4_0/keymaster_utils.h>
 
 #include <iostream>
-#define ERROR 1
-#define LOG(x) std::cout
-#define PLOG(x) std::cout
+// #define ERROR 1
+// #define LOG(x) std::cout
+// #define PLOG(x) std::cout
 
 extern "C" {
 
@@ -161,33 +161,33 @@ bool generateWrappedKey(userid_t user_id, KeyType key_type,
     return true;
 }
 
-bool getEphemeralWrappedKey(km::KeyFormat format, KeyBuffer& kmKey, KeyBuffer* key) {
-    std::string key_temp;
-    Keymaster keymaster;
-    if (!keymaster) return false;
+// bool getEphemeralWrappedKey(km::KeyFormat format, KeyBuffer& kmKey, KeyBuffer* key) {
+//     std::string key_temp;
+//     Keymaster keymaster;
+//     if (!keymaster) return false;
 
-    //Export once, if upgrade needed, upgrade and export again
-    bool export_again = true;
-    while (export_again) {
-        export_again = false;
-        auto ret = keymaster.exportKey(format, kmKey, "!", "!", &key_temp);
-        if (ret == km::ErrorCode::OK) {
-            *key = KeyBuffer(key_temp.size());
-            memcpy(reinterpret_cast<void*>(key->data()), key_temp.c_str(), key->size());
-            return true;
-        }
-        if (ret != km::ErrorCode::KEY_REQUIRES_UPGRADE) return false;
-        LOG(DEBUG) << "Upgrading key" << std::endl;
-        std::string kmKeyStr(reinterpret_cast<const char*>(kmKey.data()), kmKey.size());
-        std::string newKey;
-        if (!keymaster.upgradeKey(kmKeyStr, km::AuthorizationSet(), &newKey)) return false;
-        memcpy(reinterpret_cast<void*>(kmKey.data()), newKey.c_str(), kmKey.size());
-        LOG(INFO) << "Key upgraded" << std::endl;
-        export_again = true;
-    }
-    //Should never come here
-    return false;
-}
+//     //Export once, if upgrade needed, upgrade and export again
+//     bool export_again = true;
+//     while (export_again) {
+//         export_again = false;
+//         auto ret = keymaster.exportKey(format, kmKey, &key_temp);
+//         if (ret == km::ErrorCode::OK) {
+//             *key = KeyBuffer(key_temp.size());
+//             memcpy(reinterpret_cast<void*>(key->data()), key_temp.c_str(), key->size());
+//             return true;
+//         }
+//         if (ret != km::ErrorCode::KEY_REQUIRES_UPGRADE) return false;
+//         LOG(DEBUG) << "Upgrading key" << std::endl;
+//         std::string kmKeyStr(reinterpret_cast<const char*>(kmKey.data()), kmKey.size());
+//         std::string newKey;
+//         if (!keymaster.upgradeKey(kmKeyStr, km::AuthorizationSet(), &newKey)) return false;
+//         memcpy(reinterpret_cast<void*>(kmKey.data()), newKey.c_str(), kmKey.size());
+//         LOG(INFO) << "Key upgraded" << std::endl;
+//         export_again = true;
+//     }
+//     //Should never come here
+//     return false;
+// }
 
 static std::pair<km::AuthorizationSet, km::HardwareAuthToken> beginParams(
     const KeyAuthentication& auth, const std::string& appId) {
@@ -210,34 +210,34 @@ static bool readFileToString(const std::string& filename, std::string* result) {
     return true;
 }
 
-static bool writeStringToFile(const std::string& payload, const std::string& filename) {
-	PLOG(ERROR) << __FUNCTION__ << " called for " << filename << " and being skipped\n";
-	return true;
-    android::base::unique_fd fd(TEMP_FAILURE_RETRY(
-        open(filename.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_TRUNC | O_CLOEXEC, 0666)));
-    if (fd == -1) {
-        PLOG(ERROR) << "Failed to open " << filename;
-        return false;
-    }
-    if (!android::base::WriteStringToFd(payload, fd)) {
-        PLOG(ERROR) << "Failed to write to " << filename;
-        unlink(filename.c_str());
-        return false;
-    }
-    // fsync as close won't guarantee flush data
-    // see close(2), fsync(2) and b/68901441
-    if (fsync(fd) == -1) {
-        if (errno == EROFS || errno == EINVAL) {
-            PLOG(WARNING) << "Skip fsync " << filename
-                          << " on a file system does not support synchronization";
-        } else {
-            PLOG(ERROR) << "Failed to fsync " << filename;
-            unlink(filename.c_str());
-            return false;
-        }
-    }
-    return true;
-}
+// static bool writeStringToFile(const std::string& payload, const std::string& filename) {
+// 	PLOG(ERROR) << __FUNCTION__ << " called for " << filename << " and being skipped\n";
+// 	return true;
+//     android::base::unique_fd fd(TEMP_FAILURE_RETRY(
+//         open(filename.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_TRUNC | O_CLOEXEC, 0666)));
+//     if (fd == -1) {
+//         PLOG(ERROR) << "Failed to open " << filename;
+//         return false;
+//     }
+//     if (!android::base::WriteStringToFd(payload, fd)) {
+//         PLOG(ERROR) << "Failed to write to " << filename;
+//         unlink(filename.c_str());
+//         return false;
+//     }
+//     // fsync as close won't guarantee flush data
+//     // see close(2), fsync(2) and b/68901441
+//     if (fsync(fd) == -1) {
+//         if (errno == EROFS || errno == EINVAL) {
+//             PLOG(WARNING) << "Skip fsync " << filename
+//                           << " on a file system does not support synchronization";
+//         } else {
+//             PLOG(ERROR) << "Failed to fsync " << filename;
+//             unlink(filename.c_str());
+//             return false;
+//         }
+//     }
+//     return true;
+// }
 
 static bool readRandomBytesOrLog(size_t count, std::string* out) {
     auto status = ReadRandomBytes(count, *out);

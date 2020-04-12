@@ -19,9 +19,9 @@
 
 #include "Keymaster4.h"
 #include "KeyBuffer.h"
-#include <ext4_utils/ext4_crypt.h>
 
 #include <string>
+#include <cutils/multiuser.h>
 
 namespace android {
 namespace vold {
@@ -78,8 +78,8 @@ bool destroyKey(const std::string& dir);
 
 bool runSecdiscardSingle(const std::string& file);
 
-bool generateWrappedKey(userid_t user_id, KeyType key_type, KeyBuffer* key);
-bool getEphemeralWrappedKey(km::KeyFormat format, KeyBuffer& kmKey, KeyBuffer* key);
+// bool generateWrappedKey(userid_t user_id, KeyType key_type, KeyBuffer* key);
+// bool getEphemeralWrappedKey(km::KeyFormat format, KeyBuffer& kmKey, KeyBuffer* key);
 }  // namespace vold
 }  // namespace android
 

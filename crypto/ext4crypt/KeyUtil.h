@@ -30,9 +30,15 @@ namespace vold {
 bool randomKey(KeyBuffer* key);
 bool installKey(const KeyBuffer& key, std::string* raw_ref);
 bool evictKey(const std::string& raw_ref);
+#ifdef USE_FSCRYPT
+bool retrieveAndInstallKey(bool create_if_absent, const KeyAuthentication& key_authentication,
+                           const std::string& key_path, const std::string& tmp_path,
+                           std::string* key_ref);
+#else
 bool retrieveAndInstallKey(bool create_if_absent, const KeyAuthentication& key_authentication,
                            const std::string& key_path, const std::string& tmp_path,
                            std::string* key_ref, bool wrapped_key_supported);
+#endif
 bool retrieveKey(bool create_if_absent, const std::string& key_path,
                  const std::string& tmp_path, KeyBuffer* key);
 

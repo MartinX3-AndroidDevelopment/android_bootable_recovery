@@ -17,8 +17,10 @@
 #include "Utils.h"
 
 #include <android-base/file.h>
-#include <android-base/logging.h>
+// #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/stringprintf.h>
+#include <android-base/unique_fd.h>
 
 #include <fcntl.h>
 #include <linux/fs.h>
@@ -30,9 +32,16 @@
 #include <sys/statvfs.h>
 
 #include <selinux/android.h>
+#include <iostream> 
 
 using android::base::ReadFileToString;
+using android::base::SetProperty;
 using android::base::StringPrintf;
+using android::base::WaitForProperty;
+
+#define DEBUG(x) std::cout
+#define LOG(x) std::cout
+#define PLOG(x) std::cout
 
 namespace android {
 namespace vold {
@@ -212,13 +221,58 @@ status_t HexToStr(const std::string& hex, std::string& str) {
     return even ? OK : -EINVAL;
 }
 
-static bool isValidFilename(const std::string& name) {
-    if (name.empty() || (name == ".") || (name == "..")
-            || (name.find('/') != std::string::npos)) {
+// static bool isValidFilename(const std::string& name) {
+//     if (name.empty() || (name == ".") || (name == "..")
+//             || (name.find('/') != std::string::npos)) {
+//         return false;
+//     } else {
+//         return true;
+//     }
+// }
+
+bool FsyncDirectory(const std::string& dirname) {
+    android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(dirname.c_str(), O_RDONLY | O_CLOEXEC)));
+    if (fd == -1) {
+        PLOG(ERROR) << "Failed to open " << dirname;
         return false;
-    } else {
-        return true;
     }
+    if (fsync(fd) == -1) {
+        if (errno == EROFS || errno == EINVAL) {
+            PLOG(WARNING) << "Skip fsync " << dirname
+                          << " on a file system does not support synchronization";
+        } else {
+            PLOG(ERROR) << "Failed to fsync " << dirname;
+            return false;
+        }
+    }
+    return true;
+}
+
+bool writeStringToFile(const std::string& payload, const std::string& filename) {
+    android::base::unique_fd fd(TEMP_FAILURE_RETRY(
+        open(filename.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_TRUNC | O_CLOEXEC, 0666)));
+    if (fd == -1) {
+        PLOG(ERROR) << "Failed to open " << filename;
+        return false;
+    }
+    if (!android::base::WriteStringToFd(payload, fd)) {
+        PLOG(ERROR) << "Failed to write to " << filename;
+        unlink(filename.c_str());
+        return false;
+    }
+    // fsync as close won't guarantee flush data
+    // see close(2), fsync(2) and b/68901441
+    if (fsync(fd) == -1) {
+        if (errno == EROFS || errno == EINVAL) {
+            PLOG(WARNING) << "Skip fsync " << filename
+                          << " on a file system does not support synchronization";
+        } else {
+            PLOG(ERROR) << "Failed to fsync " << filename;
+            unlink(filename.c_str());
+            return false;
+        }
+    }
+    return true;
 }
 
 std::string BuildKeyPath(const std::string& partGuid) {
@@ -272,17 +326,40 @@ std::string BuildDataPath(const char* volumeUuid) {
     if (volumeUuid == nullptr) {
         return "/data";
     } else {
-        CHECK(isValidFilename(volumeUuid));
+        // CHECK(isValidFilename(volumeUuid));
         return StringPrintf("/mnt/expand/%s", volumeUuid);
     }
 }
 
+#ifdef USE_FSCRYPT
+std::string BuildDataMediaCePath(const std::string& volumeUuid, userid_t userId) {
+    // TODO: unify with installd path generation logic
+    std::string data(BuildDataPath(volumeUuid));
+    return StringPrintf("%s/media/%u", data.c_str(), userId);
+}
+#else
 std::string BuildDataMediaCePath(const char* volumeUuid, userid_t userId) {
     // TODO: unify with installd path generation logic
     std::string data(BuildDataPath(volumeUuid));
     return StringPrintf("%s/media/%u", data.c_str(), userId);
 }
+#endif
 
+#ifdef USE_FSCRYPT
+std::string BuildDataUserCePath(const std::string& volumeUuid, userid_t userId) {
+    // TODO: unify with installd path generation logic
+    std::string data(BuildDataPath(volumeUuid));
+    if (volumeUuid.empty() && userId == 0) {
+        std::string legacy = StringPrintf("%s/data", data.c_str());
+        struct stat sb;
+        if (lstat(legacy.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)) {
+            /* /data/data is dir, return /data/data for legacy system */
+            return legacy;
+        }
+    }
+    return StringPrintf("%s/user/%u", data.c_str(), userId);
+}
+#else
 std::string BuildDataUserCePath(const char* volumeUuid, userid_t userId) {
     // TODO: unify with installd path generation logic
     std::string data(BuildDataPath(volumeUuid));
@@ -296,12 +373,43 @@ std::string BuildDataUserCePath(const char* volumeUuid, userid_t userId) {
         return StringPrintf("%s/user/%u", data.c_str(), userId);
     }
 }
+#endif
 
+#ifdef USE_FSCRYPT
+std::string BuildDataUserDePath(const std::string& volumeUuid, userid_t userId) {
+    // TODO: unify with installd path generation logic
+    std::string data(BuildDataPath(volumeUuid));
+    return StringPrintf("%s/user_de/%u", data.c_str(), userId);
+}
+#else
 std::string BuildDataUserDePath(const char* volumeUuid, userid_t userId) {
     // TODO: unify with installd path generation logic
     std::string data(BuildDataPath(volumeUuid));
     return StringPrintf("%s/user_de/%u", data.c_str(), userId);
 }
+#endif
 
+std::string BuildDataPath(const std::string& volumeUuid) {
+    // TODO: unify with installd path generation logic
+    if (volumeUuid.empty()) {
+        return "/data";
+    } else {
+        return StringPrintf("/mnt/expand/%s", volumeUuid.c_str());
+    }
+}
+
+status_t RestoreconRecursive(const std::string& path) {
+    LOG(DEBUG) << "Starting restorecon of " << path;
+
+    static constexpr const char* kRestoreconString = "selinux.restorecon_recursive";
+
+    android::base::SetProperty(kRestoreconString, "");
+    android::base::SetProperty(kRestoreconString, path);
+
+    android::base::WaitForProperty(kRestoreconString, path);
+
+    LOG(DEBUG) << "Finished restorecon of " << path;
+    return OK;
+}
 }  // namespace vold
 }  // namespace android

@@ -66,10 +66,25 @@ std::string BuildDataVendorCePath(userid_t userid);
 std::string BuildDataVendorDePath(userid_t userid);
 
 std::string BuildDataPath(const char* volumeUuid);
+#ifdef USE_FSCRYPT
+std::string BuildDataMediaCePath(const std::string& volumeUuid, userid_t userid);
+#else
 std::string BuildDataMediaCePath(const char* volumeUuid, userid_t userid);
+#endif
+#ifdef USE_FSCRYPT
+std::string BuildDataUserCePath(const std::string& volumeUuid, userid_t userid);
+#else
 std::string BuildDataUserCePath(const char* volumeUuid, userid_t userid);
+#endif
+#ifdef USE_FSCRYPT
+std::string BuildDataUserDePath(const std::string& volumeUuid, userid_t userid);
+#else
 std::string BuildDataUserDePath(const char* volumeUuid, userid_t userid);
-
+#endif
+bool FsyncDirectory(const std::string& dirname);
+bool writeStringToFile(const std::string& payload, const std::string& filename);
+std::string BuildDataPath(const std::string& volumeUuid);
+status_t RestoreconRecursive(const std::string& path);
 }  // namespace vold
 }  // namespace android
 

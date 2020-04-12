@@ -86,11 +86,11 @@ extern "C" {
 #include <string>
 #include <vector>
 
-#define ALOGE(...) fprintf(stdout, "E:" __VA_ARGS__)
-#define SLOGE(...) fprintf(stdout, "E:" __VA_ARGS__)
-#define SLOGW(...) fprintf(stdout, "W:" __VA_ARGS__)
-#define SLOGI(...) fprintf(stdout, "I:" __VA_ARGS__)
-#define SLOGD(...) fprintf(stdout, "D:" __VA_ARGS__)
+// #define ALOGE(...) fprintf(stdout, "E:" __VA_ARGS__)
+// #define SLOGE(...) fprintf(stdout, "E:" __VA_ARGS__)
+// #define SLOGW(...) fprintf(stdout, "W:" __VA_ARGS__)
+// #define SLOGI(...) fprintf(stdout, "I:" __VA_ARGS__)
+// #define SLOGD(...) fprintf(stdout, "D:" __VA_ARGS__)
 
 #define UNUSED __attribute__((unused))
 

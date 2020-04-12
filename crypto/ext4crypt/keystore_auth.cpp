@@ -27,7 +27,7 @@
 #include <string>
 
 #ifdef USE_SECURITY_NAMESPACE
-#include <android/security/IKeystoreService.h>
+#include <android/security/keystore/IKeystoreService.h>
 #else
 #include <keystore/IKeystoreService.h>
 #include <keystore/authorization_set.h>
@@ -42,6 +42,7 @@
 #endif
 
 using namespace android;
+using android::security::keystore::IKeystoreService;
 
 void create_error_file() {
 	FILE* error_file = fopen("/auth_error", "wb");
@@ -75,7 +76,7 @@ int main() {
 	sp<IServiceManager> sm = defaultServiceManager();
 	sp<IBinder> binder = sm->getService(String16("android.security.keystore"));
 #ifdef USE_SECURITY_NAMESPACE
-	sp<security::IKeystoreService> service = interface_cast<security::IKeystoreService>(binder);
+	sp<IKeystoreService> service = interface_cast<IKeystoreService>(binder);
 #else
 	sp<IKeystoreService> service = interface_cast<IKeystoreService>(binder);
 #endif

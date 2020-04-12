@@ -51,6 +51,9 @@ ifeq ($(TARGET_HW_DISK_ENCRYPTION),true)
     LOCAL_CFLAGS += -DCONFIG_HW_DISK_ENCRYPTION
 endif
 
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29; echo $$?),0)
+    LOCAL_SHARED_LIBRARIES += liblog
+endif
 include $(BUILD_SHARED_LIBRARY)
 
 

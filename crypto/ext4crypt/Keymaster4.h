@@ -26,6 +26,14 @@
 #include <android-base/macros.h>
 #include <keymasterV4_0/Keymaster.h>
 #include <keymasterV4_0/authorization_set.h>
+#include <keystore/keystore.h>
+#include <keystore/keymaster_types.h>
+#include <keystore/keystore_hidl_support.h>
+#include <keystore/keystore_promises.h>
+#include <android/security/keystore/IKeystoreService.h>
+#include <binder/IBinder.h>
+#include <binder/IServiceManager.h>
+#include <utils/StrongPointer.h>
 
 namespace android {
 namespace vold {
@@ -103,8 +111,11 @@ class Keymaster {
     // Generate a key in the keymaster from the given params.
     bool generateKey(const km::AuthorizationSet& inParams, std::string* key);
     // Export a key from keymaster.
-    km::ErrorCode exportKey(km::KeyFormat format, KeyBuffer& kmKey, const std::string& clientId,
-                   const std::string& appData, std::string* key);
+    // km::ErrorCode exportKey(km::KeyFormat format, KeyBuffer& kmKey, const std::string& clientId,
+                  //  const std::string& appData, std::string* key);
+    keystore::KeyStoreNativeReturnCode exportKey(hardware::keymaster::V4_0::KeyFormat export_format,
+                                          const std::string& key_name,
+                                          std::string* export_data);
     // If the keymaster supports it, permanently delete a key.
     bool deleteKey(const std::string& key);
     // Replace stored key blob in response to KM_ERROR_KEY_REQUIRES_UPGRADE.
@@ -121,6 +132,9 @@ class Keymaster {
     std::unique_ptr<KmDevice> mDevice;
     DISALLOW_COPY_AND_ASSIGN(Keymaster);
     static bool hmacKeyGenerated;
+    android::sp<android::IServiceManager> service_manager_;
+    android::sp<android::IBinder> keystore_binder_;
+    android::sp<android::security::keystore::IKeystoreService> keystore_;
 };
 
 }  // namespace vold

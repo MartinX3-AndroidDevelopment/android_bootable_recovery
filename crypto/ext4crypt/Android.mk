@@ -6,7 +6,8 @@ LOCAL_MODULE := libe4crypt
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS :=
 LOCAL_SRC_FILES := Decrypt.cpp ScryptParameters.cpp Utils.cpp HashPassword.cpp ext4_crypt.cpp
-LOCAL_SHARED_LIBRARIES := libselinux libc libc++ libext4_utils libbase libcrypto libcutils libkeymaster_messages libhardware libprotobuf-cpp-lite
+LOCAL_SHARED_LIBRARIES := libselinux libc libc++ libext4_utils libbase libcrypto libcutils \
+libkeymaster_messages libhardware libprotobuf-cpp-lite libfscrypt
 LOCAL_STATIC_LIBRARIES := libscrypt_static
 LOCAL_C_INCLUDES := system/extras/ext4_utils \
     system/extras/ext4_utils/include/ext4_utils \
@@ -14,7 +15,9 @@ LOCAL_C_INCLUDES := system/extras/ext4_utils \
     system/security/keystore/include \
     hardware/libhardware/include/hardware \
     system/security/softkeymaster/include/keymaster \
-    system/keymaster/include
+    system/keymaster/include \
+    system/extras/libfscrypt/include
+
 
 ifneq ($(wildcard hardware/libhardware/include/hardware/keymaster0.h),)
     LOCAL_CFLAGS += -DTW_CRYPTO_HAVE_KEYMASTERX
@@ -25,13 +28,26 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26; echo $$?),0)
     LOCAL_CFLAGS += -DHAVE_GATEKEEPER1
     ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29; echo $$?),0)
         LOCAL_SHARED_LIBRARIES += android.hardware.confirmationui@1.0
-        # LOCAL_CFLAGS += -DUSE_
     endif
     LOCAL_SHARED_LIBRARIES += android.hardware.keymaster@3.0 libkeystore_binder libhidlbase libutils libbinder android.hardware.gatekeeper@1.0
     ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28; echo $$?),0)
         #9.0 rules
         LOCAL_CFLAGS += -DUSE_KEYSTORAGE_4 -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter -Wno-comment
-        LOCAL_SRC_FILES += Ext4CryptPie.cpp Keymaster4.cpp KeyStorage4.cpp KeyUtil.cpp MetadataCrypt.cpp KeyBuffer.cpp
+        ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29; echo $$?),0)
+            LOCAL_SRC_FILES += FsCrypt.cpp
+            LOCAL_CFLAGS += -DUSE_FSCRYPT
+            LOCAL_C_INCLUDES += system/core/fs_mgr/libfs_avb/include/ \
+                system/core/fs_mgr/include_fstab/ \
+                system/core/fs_mgr/include/ \
+                system/core/fs_mgr/libdm/include/ \
+                system/core/fs_mgr/liblp/include/ \
+                system/gsid/include/ \
+                system/core/init/
+            LOCAL_SHARED_LIBRARIES += libfs_mgr
+        else
+            LOCAL_SRC_FILES += Ext4CryptPie.cpp 
+        endif
+        LOCAL_SRC_FILES += Keymaster4.cpp KeyStorage4.cpp KeyUtil.cpp MetadataCrypt.cpp KeyBuffer.cpp
         LOCAL_SHARED_LIBRARIES += android.hardware.keymaster@4.0 libkeymaster4support
         LOCAL_SHARED_LIBRARIES += android.hardware.gatekeeper@1.0 libkeystore_parcelables libkeystore_aidl
         LOCAL_CFLAGS += -DHAVE_SYNTH_PWD_SUPPORT

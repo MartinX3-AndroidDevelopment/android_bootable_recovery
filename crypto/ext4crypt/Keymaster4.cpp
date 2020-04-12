@@ -19,10 +19,21 @@
 //#include <android-base/logging.h>
 #include <keymasterV4_0/authorization_set.h>
 #include <keymasterV4_0/keymaster_utils.h>
+#include <future>
+#include <string>
+#include <vector>
+
+#include <android/security/keystore/IKeystoreService.h>
+#include <binder/IBinder.h>
+#include <binder/IInterface.h>
+#include <binder/IServiceManager.h>
+#include <utils/String16.h>
+#include <utils/String8.h>
+
 
 #include <iostream>
-#define LOG(x) std::cout
-#define PLOG(x) std::cout
+// #define LOG(x) std::cout
+// #define PLOG(x) std::cout
 
 namespace android {
 namespace vold {
@@ -30,6 +41,16 @@ namespace vold {
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::keymaster::V4_0::SecurityLevel;
+using android::String16;
+using android::security::keymaster::ExportResult;
+using android::security::keymaster::OperationResult;
+using android::security::keystore::KeystoreResponse;
+using keystore::AuthorizationSet;
+using keystore::AuthorizationSetBuilder;
+using keystore::KeyCharacteristics;
+using keystore::KeyStoreServiceReturnCode;
+
+const int kDefaultUID = -1;
 
 KeymasterOperation::~KeymasterOperation() {
     if (mDevice) mDevice->abort(mOpHandle);
@@ -100,6 +121,10 @@ bool KeymasterOperation::finish(std::string* output) {
 /* static */ bool Keymaster::hmacKeyGenerated = false;
 
 Keymaster::Keymaster() {
+    service_manager_ = android::defaultServiceManager();
+    keystore_binder_ = service_manager_->getService(String16("android.security.keystore"));
+    keystore_ =
+        android::interface_cast<android::security::keystore::IKeystoreService>(keystore_binder_);
     auto devices = KmDevice::enumerateAvailableDevices();
     if (!hmacKeyGenerated) {
         KmDevice::performHmacKeyAgreement(devices);
@@ -142,31 +167,54 @@ bool Keymaster::generateKey(const km::AuthorizationSet& inParams, std::string* k
     return true;
 }
 
-km::ErrorCode Keymaster::exportKey(km::KeyFormat format, KeyBuffer& kmKey, const std::string& clientId,
-                          const std::string& appData, std::string* key) {
-    auto kmKeyBlob = km::support::blob2hidlVec(std::string(kmKey.data(), kmKey.size()));
-    auto emptyAssign = NULL;
-    auto kmClientId = (clientId == "!") ? emptyAssign: km::support::blob2hidlVec(clientId);
-    auto kmAppData = (appData == "!") ? emptyAssign: km::support::blob2hidlVec(appData);
-    km::ErrorCode km_error;
-    auto hidlCb = [&](km::ErrorCode ret, const hidl_vec<uint8_t>& exportedKeyBlob) {
-        km_error = ret;
-        if (km_error != km::ErrorCode::OK) return;
-        if(key)
-            key->assign(reinterpret_cast<const char*>(&exportedKeyBlob[0]),
-                            exportedKeyBlob.size());
-    };
-    auto error = mDevice->exportKey(format, kmKeyBlob, kmClientId, kmAppData, hidlCb);
-    if (!error.isOk()) {
-        LOG(ERROR) << "export_key failed: " << error.description();
-        return km::ErrorCode::UNKNOWN_ERROR;
-    }
-    if (km_error != km::ErrorCode::OK) {
-        LOG(ERROR) << "export_key failed, code " << int32_t(km_error);
-        return km_error;
-    }
-    return km::ErrorCode::OK;
+keystore::KeyStoreNativeReturnCode Keymaster::exportKey(hardware::keymaster::V4_0::KeyFormat export_format,
+                                                       const std::string& key_name,
+                                                       std::string* export_data) {
+    String16 key_name16(key_name.data(), key_name.size());
+    int32_t error_code;
+    android::sp<keystore::KeystoreExportPromise> promise(new keystore::KeystoreExportPromise);
+    auto future = promise->get_future();
+    auto binder_result = keystore_->exportKey(
+        promise, key_name16, (int)export_format, android::security::keymaster::KeymasterBlob(),
+        android::security::keymaster::KeymasterBlob(), kDefaultUID, &error_code);
+    if (!binder_result.isOk()) return ResponseCode::SYSTEM_ERROR;
+
+    keystore::KeyStoreNativeReturnCode rc(error_code);
+    if (!rc.isOk()) return rc;
+
+    auto export_result = future.get();
+    if (!export_result.resultCode.isOk()) return export_result.resultCode;
+
+    *export_data = keystore::hidlVec2String(export_result.exportData);
+
+    return export_result.resultCode;
 }
+
+// km::ErrorCode Keymaster::exportKey(km::KeyFormat format, KeyBuffer& kmKey, const std::string& clientId,
+//                           const std::string& appData, std::string* key) {
+//     auto kmKeyBlob = km::support::blob2hidlVec(std::string(kmKey.data(), kmKey.size()));
+//     auto emptyAssign = NULL;
+//     auto kmClientId = (clientId == "!") ? emptyAssign: km::support::blob2hidlVec(clientId);
+//     auto kmAppData = (appData == "!") ? emptyAssign: km::support::blob2hidlVec(appData);
+//     km::ErrorCode km_error;
+//     auto hidlCb = [&](km::ErrorCode ret, const hidl_vec<uint8_t>& exportedKeyBlob) {
+//         km_error = ret;
+//         if (km_error != km::ErrorCode::OK) return;
+//         if(key)
+//             key->assign(reinterpret_cast<const char*>(&exportedKeyBlob[0]),
+//                             exportedKeyBlob.size());
+//     };
+//     auto error = mDevice->exportKey(format, kmKeyBlob, kmClientId, kmAppData, hidlCb);
+//     if (!error.isOk()) {
+//         LOG(ERROR) << "export_key failed: " << error.description();
+//         return km::ErrorCode::UNKNOWN_ERROR;
+//     }
+//     if (km_error != km::ErrorCode::OK) {
+//         LOG(ERROR) << "export_key failed, code " << int32_t(km_error);
+//         return km_error;
+//     }
+//     return km::ErrorCode::OK;
+// }
 
 bool Keymaster::deleteKey(const std::string& key) {
     LOG(ERROR) << "not actually deleting key\n";
