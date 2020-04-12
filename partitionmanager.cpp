@@ -3244,7 +3244,12 @@ bool TWPartitionManager::Prepare_Partition(TWPartition* twrpPart) {
         return false;
     }
 
+	while (access(fstabEntry.blk_device.c_str(), F_OK) != 0) {
+		usleep(100);
+	}
+
 	twrpPart->Set_Block_Device(fstabEntry.blk_device);
+	twrpPart->Mount(true);
 	twrpPart->Update_Size(true);
 
     return true;
